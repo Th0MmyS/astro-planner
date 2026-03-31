@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astro Planner</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Astro Planner</h1>
+    </header>
+
+    <section class="controls">
+      <div class="input-group">
+        <label for="simbad-input">Object</label>
+        <div class="input-with-status">
+          <input type="text" id="simbad-input" placeholder="e.g. M31, NGC 7000, Vega" autocomplete="off" list="simbad-history" />
+          <datalist id="simbad-history"></datalist>
+          <span id="simbad-status" class="status-icon"></span>
+        </div>
+        <span id="simbad-name" class="resolved-name"></span>
+      </div>
+
+      <div class="input-group">
+        <label for="horizon-file">Horizon</label>
+        <div class="file-upload">
+          <input type="file" id="horizon-file" accept=".txt,.csv,.hrz,.hzn" />
+          <span id="horizon-status"></span>
+        </div>
+      </div>
+
+      <div class="input-group location-group">
+        <label>Location</label>
+        <div class="location-fields">
+          <input type="number" id="lat-input" step="0.0001" placeholder="Lat" />
+          <input type="number" id="lon-input" step="0.0001" placeholder="Lon" />
+          <button id="geo-btn" title="Detect location">&#9678;</button>
+        </div>
+      </div>
+
+      <button id="ok-btn" disabled>OK</button>
+    </section>
+
+    <section id="chart-section" class="hidden">
+      <div class="chart-row">
+        <div class="chart-options">
+          <label class="checkbox-label">
+            <input type="checkbox" id="show-moon" checked />
+            Moon
+          </label>
+        </div>
+        <div class="chart-container">
+          <canvas id="altitude-chart"></canvas>
+        </div>
+        <div id="stats-panel" class="stats-panel"></div>
+      </div>
+      <div id="info-bar" class="info-bar"></div>
+    </section>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

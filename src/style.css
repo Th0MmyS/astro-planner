@@ -1,0 +1,309 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f0f1a;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+header h1 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #c0c0d0;
+  margin-bottom: 24px;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 24px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.input-group label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+}
+
+.input-with-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input[type="text"],
+input[type="number"] {
+  background: #1a1a2e;
+  border: 1px solid #2a2a40;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #e0e0e0;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+  border-color: #4a4a70;
+}
+
+#simbad-input {
+  width: 220px;
+}
+
+.status-icon {
+  font-size: 1.2rem;
+  min-width: 20px;
+  text-align: center;
+}
+
+.status-icon.valid {
+  color: #4caf50;
+}
+
+.status-icon.invalid {
+  color: #ef5350;
+}
+
+.status-icon.loading {
+  color: #888;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.resolved-name {
+  font-size: 0.8rem;
+  color: #7a7a9a;
+  min-height: 1.1em;
+}
+
+/* File upload */
+.file-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input[type="file"] {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+input[type="file"]::file-selector-button {
+  background: #1a1a2e;
+  border: 1px solid #2a2a40;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #c0c0d0;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: #22223a;
+}
+
+#horizon-status {
+  font-size: 0.8rem;
+  color: #7a7a9a;
+}
+
+/* Location */
+.location-fields {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.location-fields input {
+  width: 90px;
+}
+
+#geo-btn {
+  background: #1a1a2e;
+  border: 1px solid #2a2a40;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #c0c0d0;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+#geo-btn:hover {
+  background: #22223a;
+}
+
+/* OK button */
+#ok-btn {
+  background: #2d4a7a;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 28px;
+  color: #e0e0e0;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+  align-self: flex-end;
+}
+
+#ok-btn:hover:not(:disabled) {
+  background: #3a5f99;
+}
+
+#ok-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Chart */
+.hidden {
+  display: none;
+}
+
+.chart-row {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* Chart options (left side) */
+.chart-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 20px;
+  min-width: 70px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #999;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: #e8c170;
+  cursor: pointer;
+}
+
+.chart-container {
+  background: #141428;
+  border-radius: 10px;
+  padding: 16px;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+#altitude-chart {
+  width: 100% !important;
+  height: 400px !important;
+}
+
+/* Stats panel */
+.stats-panel {
+  background: #141428;
+  border-radius: 10px;
+  padding: 20px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.stat-value.highlight {
+  color: #e8c170;
+}
+
+.stat-primary {
+  background: rgba(232, 193, 112, 0.08);
+  border: 1px solid rgba(232, 193, 112, 0.25);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.stat-primary .stat-label {
+  color: #e8c170;
+  font-weight: 600;
+}
+
+.stat-primary .stat-value {
+  font-size: 1.5rem;
+  color: #e8c170;
+}
+
+/* Info bar */
+.info-bar {
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+  padding: 14px 0 0;
+  font-size: 0.95rem;
+  color: #c0c0d0;
+}
+
+.info-bar .info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.info-bar .info-label {
+  color: #888;
+}
+
+.info-bar .transit-info {
+  color: #e8c170;
+  font-weight: 500;
+}
