@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite:*)",
+      "Bash(curl -v -X POST 'https://simbad.cds.unistra.fr/simbad/sim-tap/sync' -d \"request=doQuery&lang=adql&format=json&query=SELECT+TOP+1+main_id,ra,dec+FROM+basic+JOIN+ident+ON+oid=oidref+WHERE+id=''''M+31''''\")",
+      "Bash(curl:*)",
+      "Bash(echo \"EXIT:$?\")"
+    ]
+  }
+}

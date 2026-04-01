@@ -13,7 +13,7 @@ let chartInstance = null
  * @param {Array|null} horizonPoints - [{ az, alt }]
  * @param {Function|null} horizonAltFn - (az) => alt
  */
-export function renderChart(canvas, track, twilight, transit, riseSet, horizonPoints, horizonAltFn, nowTime, lat, moonTrack) {
+export function renderChart(canvas, track, twilight, transit, riseSet, horizonPoints, horizonAltFn, nowTime, lat, moonTrack, minAlt) {
   if (chartInstance) {
     chartInstance.destroy()
   }
@@ -51,10 +51,9 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
     datasets.push({
       label: 'Horizon',
       data: horizonData,
-      borderColor: 'rgba(100, 200, 100, 0.5)',
-      backgroundColor: 'rgba(100, 200, 100, 0.08)',
-      borderWidth: 1,
-      borderDash: [4, 4],
+      borderColor: 'rgba(100, 200, 100, 0.7)',
+      backgroundColor: 'rgba(100, 200, 100, 0.15)',
+      borderWidth: 1.5,
       pointRadius: 0,
       tension: 0.3,
       fill: 'origin',
@@ -152,12 +151,10 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
           grid: {
             color: (ctx) => {
               if (ctx.tick.value === 0) return 'rgba(255,255,100,0.3)'
-              if (ctx.tick.value === 30) return 'rgba(255,255,255,0.25)'
               return 'rgba(255,255,255,0.05)'
             },
             lineWidth: (ctx) => {
               if (ctx.tick.value === 0) return 1.5
-              if (ctx.tick.value === 30) return 1.5
               return 1
             },
           },
@@ -167,6 +164,7 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
     plugins: [
       twilightBackgroundPlugin(backgroundBands, labels),
       verticalLinesPlugin(labels, track, nowTime, lat),
+      minAltLinePlugin(minAlt),
     ],
   })
 
@@ -317,6 +315,39 @@ function verticalLinesPlugin(timeLabels, track, nowTime, observerLat) {
           }
         }
       }
+    },
+  }
+}
+
+/**
+ * Chart.js plugin to draw a horizontal min altitude line at any value.
+ */
+function minAltLinePlugin(minAltValue) {
+  return {
+    id: 'minAltLine',
+    afterDraw(chart) {
+      if (!minAltValue || minAltValue <= 0) return
+
+      const { ctx, chartArea: { left, right, top, bottom }, scales: { y } } = chart
+      const yPos = y.getPixelForValue(minAltValue)
+
+      if (yPos < top || yPos > bottom) return
+
+      ctx.save()
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'
+      ctx.lineWidth = 1.5
+      ctx.setLineDash([6, 4])
+      ctx.beginPath()
+      ctx.moveTo(left, yPos)
+      ctx.lineTo(right, yPos)
+      ctx.stroke()
+
+      // Label
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
+      ctx.font = '10px sans-serif'
+      ctx.textAlign = 'right'
+      ctx.fillText(`${minAltValue}°`, left - 4, yPos + 3)
+      ctx.restore()
     },
   }
 }
