@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { viteSingleFile } from 'vite-plugin-singlefile'
 
 export default defineConfig({
   root: '.',
@@ -9,4 +10,5 @@ export default defineConfig({
   server: {
     open: true,
   },
+  plugins: [viteSingleFile()],
 })
