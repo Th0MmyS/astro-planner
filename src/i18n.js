@@ -55,6 +55,8 @@ const translations = {
     south: 'south',
     north: 'north',
     detectLocation: 'Detect location',
+    setLocationFirst: 'Set your location first',
+    loading: 'Loading...',
   },
   cs: {
     title: 'Integration Window Calculator',
@@ -110,6 +112,8 @@ const translations = {
     south: 'jih',
     north: 'sever',
     detectLocation: 'Zjistit polohu',
+    setLocationFirst: 'Nejprve nastavte polohu',
+    loading: 'Na\u010d\u00edt\u00e1n\u00ed...',
   },
   de: {
     title: 'Integration Window Calculator',
@@ -165,6 +169,8 @@ const translations = {
     south: 'S\u00fcd',
     north: 'Nord',
     detectLocation: 'Standort erkennen',
+    setLocationFirst: 'Standort zuerst einstellen',
+    loading: 'Laden...',
   },
   es: {
     title: 'Integration Window Calculator',
@@ -220,6 +226,8 @@ const translations = {
     south: 'sur',
     north: 'norte',
     detectLocation: 'Detectar ubicaci\u00f3n',
+    setLocationFirst: 'Establezca su ubicaci\u00f3n primero',
+    loading: 'Cargando...',
   },
   it: {
     title: 'Integration Window Calculator',
@@ -275,6 +283,8 @@ const translations = {
     south: 'sud',
     north: 'nord',
     detectLocation: 'Rileva posizione',
+    setLocationFirst: 'Imposta prima la posizione',
+    loading: 'Caricamento...',
   },
 }
 

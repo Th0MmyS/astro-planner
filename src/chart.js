@@ -10,15 +10,15 @@ let chartInstance = null
  * @param {object} twilight - { day, civil, nautical, astro, night }
  * @param {object} transit - { time, alt, az, direction }
  * @param {object} riseSet - { rise, set }
- * @param {Array|null} horizonPoints - [{ az, alt }]
  * @param {Function|null} horizonAltFn - (az) => alt
  */
-export function renderChart(canvas, track, twilight, transit, riseSet, horizonPoints, horizonAltFn, nowTime, lat, moonTrack, minAlt, astroNightPeriods) {
+export function renderChart(canvas, track, twilight, transit, riseSet, horizonAltFn, nowTime, lat, moonTrack, minAlt, astroNightPeriods) {
   if (chartInstance) {
     chartInstance.destroy()
   }
 
   const labels = track.map(p => p.time)
+  const formattedLabels = labels.map(t => formatTime(t))
   const altData = track.map(p => p.alt)
 
   // Horizon line data (altitude threshold at each track point's azimuth)
@@ -165,11 +165,11 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
       scales: {
         x: {
           type: 'category',
-          labels: labels.map(t => formatTime(t)),
+          labels: formattedLabels,
           ticks: {
             color: '#8A94A8',
             maxRotation: 0,
-            callback: (val, index) => index % 12 === 0 ? labels.map(t => formatTime(t))[val] : '',
+            callback: (val, index) => index % 12 === 0 ? formattedLabels[val] : '',
             autoSkip: false,
           },
           grid: {
@@ -353,110 +353,6 @@ function verticalLinesPlugin(timeLabels, track, nowTime, observerLat) {
       }
     },
   }
-}
-
-/**
- * Chart.js plugin to fill between the object curve and the threshold
- * only during astronomical night when the object is above threshold.
- */
-function visibilityFillPlugin(track, timeLabels, horizonAltFn, minAlt, astroNightPeriods) {
-  return {
-    id: 'visibilityFill',
-    afterDatasetsDraw(chart) {
-      if (!track.length || !astroNightPeriods || !astroNightPeriods.length) return
-
-      const { ctx, chartArea: { left, right, top, bottom }, scales: { x, y } } = chart
-      const startMs = timeLabels[0].getTime()
-      const endMs = timeLabels[timeLabels.length - 1].getTime()
-      const totalMs = endMs - startMs
-      const chartWidth = right - left
-
-      const toX = (i) => {
-        // Map index to pixel position
-        const ms = timeLabels[i].getTime()
-        return left + ((ms - startMs) / totalMs) * chartWidth
-      }
-
-      ctx.save()
-      ctx.fillStyle = 'rgba(231, 76, 60, 0.70)'
-      ctx.beginPath()
-
-      let inSegment = false
-
-      for (let i = 0; i < track.length; i++) {
-        const p = track[i]
-        const threshold = Math.max(horizonAltFn ? horizonAltFn(p.az) : 0, minAlt || 0)
-        const inAstro = astroNightPeriods.some(n => p.time >= n.start && p.time < n.end)
-        const visible = inAstro && p.alt > threshold
-
-        const px = toX(i)
-        const altY = y.getPixelForValue(p.alt)
-        const threshY = y.getPixelForValue(threshold)
-
-        if (visible) {
-          if (!inSegment) {
-            // Start a new fill segment — move to threshold, then up to altitude
-            ctx.moveTo(px, threshY)
-            ctx.lineTo(px, altY)
-            inSegment = true
-          } else {
-            ctx.lineTo(px, altY)
-          }
-        } else {
-          if (inSegment) {
-            // Close the segment — go back down along the threshold
-            // Trace threshold line backwards
-            const segStart = findSegmentStart(track, i, timeLabels, horizonAltFn, minAlt, astroNightPeriods)
-            for (let j = i - 1; j >= segStart; j--) {
-              const tp = track[j]
-              const th = Math.max(horizonAltFn ? horizonAltFn(tp.az) : 0, minAlt || 0)
-              ctx.lineTo(toX(j), y.getPixelForValue(th))
-            }
-            ctx.closePath()
-            inSegment = false
-          }
-        }
-      }
-
-      // Close final segment if still open
-      if (inSegment) {
-        const lastI = track.length - 1
-        for (let j = lastI; j >= 0; j--) {
-          const p = track[j]
-          const threshold = Math.max(horizonAltFn ? horizonAltFn(p.az) : 0, minAlt || 0)
-          const inAstro = astroNightPeriods.some(n => p.time >= n.start && p.time < n.end)
-          if (!(inAstro && p.alt > threshold)) {
-            // Trace back threshold from j+1 to segment start
-            const segStart = findSegmentStart(track, j + 1, timeLabels, horizonAltFn, minAlt, astroNightPeriods)
-            for (let k = j; k >= segStart; k--) {
-              const tp = track[k]
-              const th = Math.max(horizonAltFn ? horizonAltFn(tp.az) : 0, minAlt || 0)
-              ctx.lineTo(toX(k), y.getPixelForValue(th))
-            }
-            break
-          }
-          if (j === 0) {
-            const th = Math.max(horizonAltFn ? horizonAltFn(track[0].az) : 0, minAlt || 0)
-            ctx.lineTo(toX(0), y.getPixelForValue(th))
-          }
-        }
-        ctx.closePath()
-      }
-
-      ctx.fill()
-      ctx.restore()
-    },
-  }
-}
-
-function findSegmentStart(track, endI, timeLabels, horizonAltFn, minAlt, astroNightPeriods) {
-  for (let j = endI - 1; j >= 0; j--) {
-    const p = track[j]
-    const threshold = Math.max(horizonAltFn ? horizonAltFn(p.az) : 0, minAlt || 0)
-    const inAstro = astroNightPeriods.some(n => p.time >= n.start && p.time < n.end)
-    if (!(inAstro && p.alt > threshold)) return j + 1
-  }
-  return 0
 }
 
 /**

@@ -1,9 +1,15 @@
 import './style.css'
 import { parseHorizonFile, horizonAltAt } from './horizon.js'
-import { computeAltitudeTrack, findTransit, findRiseSet, computeTwilightPeriods, computeMoonTrack, altAz, sunAltitude, moonPosition, angularSeparation } from './astro.js'
+import { computeAltitudeTrack, findTransit, findRiseSet, computeTwilightPeriods, computeMoonTrack, altAz, sunAltitude } from './astro.js'
 import { renderChart, buildInfoHTML } from './chart.js'
 import { fetchCatalog, enrichWithNames } from './catalog.js'
 import { t, getLang, setLang, getAvailableLanguages } from './i18n.js'
+
+function formatMinutes(totalMinutes) {
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  return `${h}h ${m.toString().padStart(2, '0')}m`
+}
 
 // --- Language selector ---
 const langSelect = document.getElementById('lang-select')
@@ -105,7 +111,7 @@ try {
 fetchCatalogBtn.addEventListener('click', async () => {
   fetchCatalogBtn.disabled = true
   fetchSpinner.classList.remove('hidden')
-  fetchBtnText.textContent = 'Loading...'
+  fetchBtnText.textContent = t('loading')
 
   try {
     cachedCatalog = await fetchCatalog((msg) => {
@@ -176,6 +182,15 @@ function showAutocomplete(query) {
   }
 }
 
+function setResolvedAndChart(id, ra, dec) {
+  resolvedObject = { name: id, ra, dec }
+  simbadStatus.textContent = '\u2713'
+  simbadStatus.className = 'status-icon valid'
+  simbadName.textContent = `${id} (${ra.toFixed(4)}°, ${dec.toFixed(4)}°)`
+  addToHistory(id)
+  maybeGenerateChart()
+}
+
 let skipNextInput = false
 
 function selectAutocomplete(match) {
@@ -184,21 +199,12 @@ function selectAutocomplete(match) {
   autocompleteList.classList.add('hidden')
 
   if (match.ra != null && match.dec != null) {
-    resolvedObject = { name: match.id, ra: match.ra, dec: match.dec }
-    simbadStatus.textContent = '\u2713'
-    simbadStatus.className = 'status-icon valid'
-    simbadName.textContent = `${match.id} (${match.ra.toFixed(4)}°, ${match.dec.toFixed(4)}°)`
-    addToHistory(match.id)
-    maybeGenerateChart()
+    setResolvedAndChart(match.id, match.ra, match.dec)
   } else {
     // History item without coords — try catalog lookup
     const catalogMatch = findCatalogMatch(match.id)
     if (catalogMatch) {
-      resolvedObject = { name: catalogMatch.id, ra: catalogMatch.ra, dec: catalogMatch.dec }
-      simbadStatus.textContent = '\u2713'
-      simbadStatus.className = 'status-icon valid'
-      simbadName.textContent = `${catalogMatch.id} (${catalogMatch.ra.toFixed(4)}°, ${catalogMatch.dec.toFixed(4)}°)`
-      maybeGenerateChart()
+      setResolvedAndChart(catalogMatch.id, catalogMatch.ra, catalogMatch.dec)
     }
   }
 }
@@ -386,6 +392,10 @@ function generateChart() {
   const horizonThreshold = horizonFn || (() => 0)
   const userMinAlt = parseFloat(minAltInput.value) || 0
 
+  // Precompute twilight boolean arrays
+  const isAstroNight = track.map(p => twilight.night.some(n => p.time >= n.start && p.time < n.end))
+  const isNighttime = track.map(p => !twilight.day.some(d => p.time >= d.start && p.time < d.end))
+
   // Visible time during astronomical night (sun < -18°) and above horizon + min altitude
   let astroNightMinutes = 0
   // Visible time during any night (sun < 0°) and above horizon
@@ -396,25 +406,17 @@ function generateChart() {
     const aboveHorizon = p.alt > horizonThreshold(p.az)
     const aboveMinAlt = p.alt > threshold
 
-    const inAstroNight = twilight.night.some(
-      n => p.time >= n.start && p.time < n.end
-    )
-    if (inAstroNight && aboveMinAlt) {
+    if (isAstroNight[i] && aboveMinAlt) {
       astroNightMinutes += 5
     }
 
-    const inNight = !twilight.day.some(
-      d => p.time >= d.start && p.time < d.end
-    )
-    if (inNight && aboveHorizon) {
+    if (isNighttime[i] && aboveHorizon) {
       nightVisibleMinutes += 5
     }
   }
 
-  const astroHours = Math.floor(astroNightMinutes / 60)
-  const astroMins = astroNightMinutes % 60
-  const nightHours = Math.floor(nightVisibleMinutes / 60)
-  const nightMins = nightVisibleMinutes % 60
+  const astroTimeText = formatMinutes(astroNightMinutes)
+  const nightTimeText = formatMinutes(nightVisibleMinutes)
 
   // Min/max altitude
   let minAlt = Infinity, maxAlt = -Infinity
@@ -425,10 +427,10 @@ function generateChart() {
 
   // Time until object becomes visible in astro night
   let timeUntilVisible = null
-  for (const p of track) {
+  for (let i = 0; i < track.length; i++) {
+    const p = track[i]
     const threshold = Math.max(horizonThreshold(p.az), userMinAlt)
-    const inAstroNight = twilight.night.some(n => p.time >= n.start && p.time < n.end)
-    if (inAstroNight && p.alt > threshold) {
+    if (isAstroNight[i] && p.alt > threshold) {
       const diffMs = p.time.getTime() - now.getTime()
       if (diffMs > 0) {
         timeUntilVisible = diffMs
@@ -445,40 +447,12 @@ function generateChart() {
   } else if (timeUntilVisible === 0) {
     visibleInText = t('now')
   } else {
-    const mins = Math.round(timeUntilVisible / 60000)
-    const h = Math.floor(mins / 60)
-    const m = mins % 60
-    visibleInText = `${h}h ${m.toString().padStart(2, '0')}m`
-  }
-
-  // Moon angular distance over time
-  const moonDistData = track.map(p => {
-    const moonPos = moonPosition(p.time)
-    return angularSeparation(ra, dec, moonPos.ra, moonPos.dec)
-  })
-
-  const moonDistNow = moonDistData[0]
-
-  // Min moon distance during astro night
-  let moonDistMin = Infinity
-  for (let i = 0; i < track.length; i++) {
-    const inAstroNight = twilight.night.some(n => track[i].time >= n.start && track[i].time < n.end)
-    if (inAstroNight && moonDistData[i] < moonDistMin) {
-      moonDistMin = moonDistData[i]
-    }
-  }
-  if (moonDistMin === Infinity) moonDistMin = moonDistNow
-
-  // Color code: green >30°, amber 15-30°, red <15°
-  function moonDistClass(deg) {
-    if (deg >= 30) return 'moon-safe'
-    if (deg >= 15) return 'moon-warn'
-    return 'moon-danger'
+    visibleInText = formatMinutes(Math.round(timeUntilVisible / 60000))
   }
 
   // Render
   chartSection.classList.remove('hidden')
-  renderChart(canvas, track, twilight, transit, riseSet, horizonPoints, horizonFn, now, lat, moonTrack, userMinAlt, twilight.night)
+  renderChart(canvas, track, twilight, transit, riseSet, horizonFn, now, lat, moonTrack, userMinAlt, twilight.night)
   infoBar.innerHTML = buildInfoHTML(transit, riseSet, {
     transit: t('transit'), rise: t('rise'), set: t('set'),
     south: t('south'), north: t('north'),
@@ -487,7 +461,7 @@ function generateChart() {
   statsPanel.innerHTML = `
     <div class="stat-item stat-primary">
       <span class="stat-label">${t('theoreticalIntegration')}</span>
-      <span class="stat-value">${astroHours}h ${astroMins.toString().padStart(2, '0')}m</span>
+      <span class="stat-value">${astroTimeText}</span>
     </div>
     <div class="stat-item">
       <span class="stat-label">${t('startsIn')}</span>
@@ -495,13 +469,12 @@ function generateChart() {
     </div>
     <div class="stat-item">
       <span class="stat-label">${t('aboveHorizonNight')}</span>
-      <span class="stat-value highlight">${nightHours}h ${nightMins.toString().padStart(2, '0')}m</span>
+      <span class="stat-value highlight">${nightTimeText}</span>
     </div>
   `
 
   // --- 7-day forecast ---
   const weeklyForecast = document.getElementById('weekly-forecast')
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const days = []
 
   for (let d = 0; d < 7; d++) {
@@ -526,7 +499,7 @@ function generateChart() {
 
     const date = new Date(dayStart)
     days.push({
-      label: d === 0 ? t('today') : dayNames[date.getDay()],
+      label: d === 0 ? t('today') : date.toLocaleDateString([], { weekday: 'short' }),
       date: date.toLocaleDateString([], { month: 'short', day: 'numeric' }),
       minutes: dayAstroMin,
     })
@@ -538,12 +511,10 @@ function generateChart() {
     <h3>${t('weeklyTitle')}</h3>
     <div class="weekly-days">
       ${days.map((d, i) => {
-        const h = Math.floor(d.minutes / 60)
-        const m = d.minutes % 60
         const pct = (d.minutes / maxMinutes) * 100
         return `<div class="weekly-day${i === 0 ? ' today' : ''}">
           <span class="day-label">${d.label}</span>
-          <span class="day-value">${h}h${m.toString().padStart(2, '0')}</span>
+          <span class="day-value">${formatMinutes(d.minutes).replace(' ', '')}</span>
           <span class="day-label">${d.date}</span>
           <div class="day-bar"><div class="day-bar-fill" style="width:${pct}%"></div></div>
         </div>`
@@ -582,20 +553,23 @@ filterMinAlt.addEventListener('change', applyFilters)
 
 async function startBrowse() {
   if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) {
-    browseStatus.textContent = 'Set your location first'
+    browseStatus.textContent = t('setLocationFirst')
     return
   }
 
   browseSection.classList.remove('hidden')
   browseTbody.innerHTML = ''
-  browseStatus.textContent = 'Fetching catalog...'
   browseBtn.disabled = true
 
   try {
-    const catalog = await fetchCatalog((msg) => { browseStatus.textContent = msg })
-
-    // Update autocomplete cache
-    cachedCatalog = catalog
+    let catalog
+    if (cachedCatalog) {
+      catalog = cachedCatalog
+    } else {
+      browseStatus.textContent = t('loading')
+      catalog = await fetchCatalog((msg) => { browseStatus.textContent = msg })
+      cachedCatalog = catalog
+    }
 
     browseStatus.textContent = t('computing', { n: catalog.length })
 
@@ -615,7 +589,6 @@ async function startBrowse() {
     }
 
     // Quick filter: only compute objects that can ever rise at this latitude
-    const latRad = lat * Math.PI / 180
     const results = []
 
     for (const obj of catalog) {
@@ -713,10 +686,6 @@ function renderPage() {
   const pageItems = filteredResults.slice(start, start + PAGE_SIZE)
 
   browseTbody.innerHTML = pageItems.map(obj => {
-    const astroH = Math.floor(obj.astroNightMin / 60)
-    const astroM = obj.astroNightMin % 60
-    const nightH = Math.floor(obj.nightVisibleMin / 60)
-    const nightM = obj.nightVisibleMin % 60
     const transit = obj.transitTime
       ? obj.transitTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
       : '-'
@@ -727,8 +696,8 @@ function renderPage() {
 
     return `<tr data-id="${obj.id}" data-ra="${obj.ra}" data-dec="${obj.dec}">
       <td>${labels.join(' / ')}${nameHtml}</td>
-      <td class="astro-col">${astroH}h ${astroM.toString().padStart(2, '0')}m</td>
-      <td>${nightH}h ${nightM.toString().padStart(2, '0')}m</td>
+      <td class="astro-col">${formatMinutes(obj.astroNightMin)}</td>
+      <td>${formatMinutes(obj.nightVisibleMin)}</td>
       <td>${obj.maxAlt.toFixed(1)}°</td>
       <td>${transit}</td>
     </tr>`
@@ -741,11 +710,7 @@ function renderPage() {
       const ra = parseFloat(row.dataset.ra)
       const dec = parseFloat(row.dataset.dec)
       simbadInput.value = id
-      resolvedObject = { name: id, ra, dec }
-      simbadStatus.textContent = '\u2713'
-      simbadStatus.className = 'status-icon valid'
-      simbadName.textContent = `${id} (${ra.toFixed(4)}°, ${dec.toFixed(4)}°)`
-      maybeGenerateChart()
+      setResolvedAndChart(id, ra, dec)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     })
   }

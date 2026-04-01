@@ -192,14 +192,6 @@ header h1 {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* === Labels === */
-.label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-}
-
 /* === Controls Section === */
 .controls {
   display: flex;
@@ -368,10 +360,6 @@ input[type="file"]::file-selector-button:hover {
 }
 
 /* === Action Buttons === */
-#ok-btn {
-  padding: 0 28px;
-}
-
 #browse-btn {
   align-self: flex-end;
 }
