@@ -2,7 +2,7 @@ const LANG_KEY = 'astro_lang'
 
 const translations = {
   en: {
-    title: 'Astro Planner',
+    title: 'Integration Window Calculator',
     loadCatalog: 'Load catalog',
     catalogLoaded: 'Catalog loaded',
     object: 'Object',
@@ -57,7 +57,7 @@ const translations = {
     detectLocation: 'Detect location',
   },
   cs: {
-    title: 'Astro Planner',
+    title: 'Integration Window Calculator',
     loadCatalog: 'Na\u010d\u00edst katalog',
     catalogLoaded: 'Katalog na\u010dten',
     object: 'Objekt',
@@ -112,7 +112,7 @@ const translations = {
     detectLocation: 'Zjistit polohu',
   },
   de: {
-    title: 'Astro Planner',
+    title: 'Integration Window Calculator',
     loadCatalog: 'Katalog laden',
     catalogLoaded: 'Katalog geladen',
     object: 'Objekt',
@@ -167,7 +167,7 @@ const translations = {
     detectLocation: 'Standort erkennen',
   },
   es: {
-    title: 'Astro Planner',
+    title: 'Integration Window Calculator',
     loadCatalog: 'Cargar cat\u00e1logo',
     catalogLoaded: 'Cat\u00e1logo cargado',
     object: 'Objeto',
@@ -222,7 +222,7 @@ const translations = {
     detectLocation: 'Detectar ubicaci\u00f3n',
   },
   it: {
-    title: 'Astro Planner',
+    title: 'Integration Window Calculator',
     loadCatalog: 'Carica catalogo',
     catalogLoaded: 'Catalogo caricato',
     object: 'Oggetto',

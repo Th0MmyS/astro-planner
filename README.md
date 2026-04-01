@@ -1,4 +1,4 @@
-# Astro Planner
+# Integration Window Calculator
 
 A browser-based astronomy planning tool that shows altitude graphs for celestial objects. Helps you figure out when and how long a target is visible from your location.
 

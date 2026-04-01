@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Astro Planner</title>
+  <title>Integration Window Calculator</title>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
@@ -44,7 +44,7 @@
       <div class="input-group">
         <label for="min-alt-input" data-i18n="minAlt">Min altitude</label>
         <div class="min-alt-row">
-          <input type="number" id="min-alt-input" value="30" min="0" max="90" step="5" />
+          <input type="number" id="min-alt-input" value="0" min="0" max="90" step="5" />
           <span class="unit-label">&deg;</span>
         </div>
       </div>
@@ -58,7 +58,6 @@
       </div>
 
       <div class="controls-row">
-        <button id="ok-btn" class="btn btn-primary" data-i18n="ok" disabled>OK</button>
         <button id="browse-btn" class="btn" data-i18n="browseCatalog">Browse catalog</button>
       </div>
     </section>

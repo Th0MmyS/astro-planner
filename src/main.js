@@ -53,7 +53,6 @@ const horizonStatus = document.getElementById('horizon-status')
 const latInput = document.getElementById('lat-input')
 const lonInput = document.getElementById('lon-input')
 const geoBtn = document.getElementById('geo-btn')
-const okBtn = document.getElementById('ok-btn')
 const chartSection = document.getElementById('chart-section')
 const canvas = document.getElementById('altitude-chart')
 const infoBar = document.getElementById('info-bar')
@@ -177,7 +176,10 @@ function showAutocomplete(query) {
   }
 }
 
+let skipNextInput = false
+
 function selectAutocomplete(match) {
+  skipNextInput = true
   simbadInput.value = match.id
   autocompleteList.classList.add('hidden')
 
@@ -187,7 +189,7 @@ function selectAutocomplete(match) {
     simbadStatus.className = 'status-icon valid'
     simbadName.textContent = `${match.id} (${match.ra.toFixed(4)}°, ${match.dec.toFixed(4)}°)`
     addToHistory(match.id)
-    updateOkButton()
+    maybeGenerateChart()
   } else {
     // History item without coords — try catalog lookup
     const catalogMatch = findCatalogMatch(match.id)
@@ -196,7 +198,7 @@ function selectAutocomplete(match) {
       simbadStatus.textContent = '\u2713'
       simbadStatus.className = 'status-icon valid'
       simbadName.textContent = `${catalogMatch.id} (${catalogMatch.ra.toFixed(4)}°, ${catalogMatch.dec.toFixed(4)}°)`
-      updateOkButton()
+      maybeGenerateChart()
     }
   }
 }
@@ -234,8 +236,11 @@ function updateAutocompleteActive(items) {
 
 // --- Catalog-based input validation ---
 simbadInput.addEventListener('input', () => {
+  if (skipNextInput) {
+    skipNextInput = false
+    return
+  }
   resolvedObject = null
-  updateOkButton()
 
   const value = simbadInput.value.trim()
   showAutocomplete(value)
@@ -247,24 +252,10 @@ simbadInput.addEventListener('input', () => {
     return
   }
 
-  // Resolve from cached catalog only
-  const catalogMatch = findCatalogMatch(value)
-  if (catalogMatch) {
-    resolvedObject = { name: catalogMatch.id, ra: catalogMatch.ra, dec: catalogMatch.dec }
-    simbadStatus.textContent = '\u2713'
-    simbadStatus.className = 'status-icon valid'
-    simbadName.textContent = `${catalogMatch.id}${catalogMatch.name ? ' — ' + catalogMatch.name : ''} (${catalogMatch.ra.toFixed(4)}°, ${catalogMatch.dec.toFixed(4)}°)`
-    addToHistory(catalogMatch.id)
-    updateOkButton()
-  } else if (cachedCatalog) {
-    simbadStatus.textContent = '\u2717'
-    simbadStatus.className = 'status-icon invalid'
-    simbadName.textContent = t('notFoundCatalog')
-  } else {
-    simbadStatus.textContent = '\u2717'
-    simbadStatus.className = 'status-icon invalid'
-    simbadName.textContent = t('loadCatalogFirst')
-  }
+  // Show searching indicator while user types
+  simbadStatus.textContent = ''
+  simbadStatus.className = 'status-icon'
+  simbadName.textContent = ''
 })
 
 /** Try to find a match in the cached catalog by id, common name, or partial match. */
@@ -320,7 +311,7 @@ function setLocation(latitude, longitude) {
   lonInput.value = longitude.toFixed(4)
   localStorage.setItem('astro_lat', latitude)
   localStorage.setItem('astro_lon', longitude)
-  updateOkButton()
+  maybeGenerateChart()
 }
 
 latInput.addEventListener('change', () => {
@@ -330,7 +321,7 @@ latInput.addEventListener('change', () => {
     localStorage.setItem('astro_lat', lat)
     localStorage.setItem('astro_lon', lon)
   }
-  updateOkButton()
+  maybeGenerateChart()
 })
 
 lonInput.addEventListener('change', () => {
@@ -340,7 +331,7 @@ lonInput.addEventListener('change', () => {
     localStorage.setItem('astro_lat', lat)
     localStorage.setItem('astro_lon', lon)
   }
-  updateOkButton()
+  maybeGenerateChart()
 })
 
 geoBtn.addEventListener('click', requestGeolocation)
@@ -366,14 +357,11 @@ if (savedLat && savedLon) {
 applyTranslations()
 
 // --- OK button ---
-function updateOkButton() {
-  okBtn.disabled = !(resolvedObject && lat != null && lon != null && !isNaN(lat) && !isNaN(lon))
+function maybeGenerateChart() {
+  if (resolvedObject && lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
+    generateChart()
+  }
 }
-
-okBtn.addEventListener('click', () => {
-  if (!resolvedObject || lat == null || lon == null) return
-  generateChart()
-})
 
 // --- Generate chart ---
 function generateChart() {
@@ -757,8 +745,7 @@ function renderPage() {
       simbadStatus.textContent = '\u2713'
       simbadStatus.className = 'status-icon valid'
       simbadName.textContent = `${id} (${ra.toFixed(4)}°, ${dec.toFixed(4)}°)`
-      updateOkButton()
-      generateChart()
+      maybeGenerateChart()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     })
   }
