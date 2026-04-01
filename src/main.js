@@ -1,8 +1,42 @@
 import './style.css'
 import { parseHorizonFile, horizonAltAt } from './horizon.js'
-import { computeAltitudeTrack, findTransit, findRiseSet, computeTwilightPeriods, computeMoonTrack, altAz, sunAltitude } from './astro.js'
+import { computeAltitudeTrack, findTransit, findRiseSet, computeTwilightPeriods, computeMoonTrack, altAz, sunAltitude, moonPosition, angularSeparation } from './astro.js'
 import { renderChart, buildInfoHTML } from './chart.js'
 import { fetchCatalog, enrichWithNames } from './catalog.js'
+import { t, getLang, setLang, getAvailableLanguages } from './i18n.js'
+
+// --- Language selector ---
+const langSelect = document.getElementById('lang-select')
+for (const lang of getAvailableLanguages()) {
+  const opt = document.createElement('option')
+  opt.value = lang.code
+  opt.textContent = `${lang.flag} ${lang.label}`
+  if (lang.code === getLang()) opt.selected = true
+  langSelect.appendChild(opt)
+}
+
+langSelect.addEventListener('change', () => {
+  setLang(langSelect.value)
+  applyTranslations()
+  // Re-render chart if visible
+  if (resolvedObject && lat != null && lon != null) generateChart()
+})
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n)
+  })
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder)
+  })
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle)
+  })
+  // Update fetch button if catalog loaded
+  if (cachedCatalog) {
+    fetchBtnText.textContent = `${t('catalogLoaded')} (${cachedCatalog.length})`
+  }
+}
 
 // State
 let resolvedObject = null
@@ -65,7 +99,7 @@ try {
   const cached = localStorage.getItem('astro_catalog')
   if (cached) {
     cachedCatalog = enrichWithNames(JSON.parse(cached))
-    fetchBtnText.textContent = `Catalog loaded (${cachedCatalog.length})`
+    fetchBtnText.textContent = `${t('catalogLoaded')} (${cachedCatalog.length})`
   }
 } catch {}
 
@@ -78,7 +112,7 @@ fetchCatalogBtn.addEventListener('click', async () => {
     cachedCatalog = await fetchCatalog((msg) => {
       fetchBtnText.textContent = msg
     })
-    fetchBtnText.textContent = `Catalog loaded (${cachedCatalog.length})`
+    fetchBtnText.textContent = `${t('catalogLoaded')} (${cachedCatalog.length})`
   } catch (e) {
     fetchBtnText.textContent = `Error: ${e.message}`
   } finally {
@@ -132,7 +166,7 @@ function showAutocomplete(query) {
     } else if (match.source === 'recent') {
       const hint = document.createElement('span')
       hint.className = 'match-hint'
-      hint.textContent = 'recent'
+      hint.textContent = t('recent')
       li.appendChild(hint)
     }
     li.addEventListener('mousedown', (e) => {
@@ -225,11 +259,11 @@ simbadInput.addEventListener('input', () => {
   } else if (cachedCatalog) {
     simbadStatus.textContent = '\u2717'
     simbadStatus.className = 'status-icon invalid'
-    simbadName.textContent = 'Not found in catalog'
+    simbadName.textContent = t('notFoundCatalog')
   } else {
     simbadStatus.textContent = '\u2717'
     simbadStatus.className = 'status-icon invalid'
-    simbadName.textContent = 'Load catalog first'
+    simbadName.textContent = t('loadCatalogFirst')
   }
 })
 
@@ -272,7 +306,7 @@ horizonFile.addEventListener('change', (e) => {
   const reader = new FileReader()
   reader.onload = () => {
     horizonPoints = parseHorizonFile(reader.result)
-    horizonStatus.textContent = `${horizonPoints.length} points loaded`
+    horizonStatus.textContent = `${horizonPoints.length} ${t('pointsLoaded')}`
     if (resolvedObject && lat != null && lon != null) generateChart()
   }
   reader.readAsText(file)
@@ -327,6 +361,9 @@ if (savedLat && savedLon) {
 } else {
   requestGeolocation()
 }
+
+// Apply translations on startup
+applyTranslations()
 
 // --- OK button ---
 function updateOkButton() {
@@ -398,27 +435,79 @@ function generateChart() {
     if (p.alt > maxAlt) maxAlt = p.alt
   }
 
+  // Time until object becomes visible in astro night
+  let timeUntilVisible = null
+  for (const p of track) {
+    const threshold = Math.max(horizonThreshold(p.az), userMinAlt)
+    const inAstroNight = twilight.night.some(n => p.time >= n.start && p.time < n.end)
+    if (inAstroNight && p.alt > threshold) {
+      const diffMs = p.time.getTime() - now.getTime()
+      if (diffMs > 0) {
+        timeUntilVisible = diffMs
+      } else {
+        timeUntilVisible = 0 // already visible
+      }
+      break
+    }
+  }
+
+  let visibleInText
+  if (timeUntilVisible === null) {
+    visibleInText = t('never')
+  } else if (timeUntilVisible === 0) {
+    visibleInText = t('now')
+  } else {
+    const mins = Math.round(timeUntilVisible / 60000)
+    const h = Math.floor(mins / 60)
+    const m = mins % 60
+    visibleInText = `${h}h ${m.toString().padStart(2, '0')}m`
+  }
+
+  // Moon angular distance over time
+  const moonDistData = track.map(p => {
+    const moonPos = moonPosition(p.time)
+    return angularSeparation(ra, dec, moonPos.ra, moonPos.dec)
+  })
+
+  const moonDistNow = moonDistData[0]
+
+  // Min moon distance during astro night
+  let moonDistMin = Infinity
+  for (let i = 0; i < track.length; i++) {
+    const inAstroNight = twilight.night.some(n => track[i].time >= n.start && track[i].time < n.end)
+    if (inAstroNight && moonDistData[i] < moonDistMin) {
+      moonDistMin = moonDistData[i]
+    }
+  }
+  if (moonDistMin === Infinity) moonDistMin = moonDistNow
+
+  // Color code: green >30°, amber 15-30°, red <15°
+  function moonDistClass(deg) {
+    if (deg >= 30) return 'moon-safe'
+    if (deg >= 15) return 'moon-warn'
+    return 'moon-danger'
+  }
+
   // Render
   chartSection.classList.remove('hidden')
-  renderChart(canvas, track, twilight, transit, riseSet, horizonPoints, horizonFn, now, lat, moonTrack, userMinAlt)
-  infoBar.innerHTML = buildInfoHTML(transit, riseSet)
+  renderChart(canvas, track, twilight, transit, riseSet, horizonPoints, horizonFn, now, lat, moonTrack, userMinAlt, twilight.night)
+  infoBar.innerHTML = buildInfoHTML(transit, riseSet, {
+    transit: t('transit'), rise: t('rise'), set: t('set'),
+    south: t('south'), north: t('north'),
+  })
 
   statsPanel.innerHTML = `
     <div class="stat-item stat-primary">
-      <span class="stat-label">Visible in astro night</span>
+      <span class="stat-label">${t('theoreticalIntegration')}</span>
       <span class="stat-value">${astroHours}h ${astroMins.toString().padStart(2, '0')}m</span>
     </div>
     <div class="stat-item">
-      <span class="stat-label">Above horizon at night</span>
+      <span class="stat-label">${t('startsIn')}</span>
+      <span class="stat-value highlight">${visibleInText}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">${t('aboveHorizonNight')}</span>
       <span class="stat-value highlight">${nightHours}h ${nightMins.toString().padStart(2, '0')}m</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">Max altitude</span>
-      <span class="stat-value">${maxAlt.toFixed(1)}&deg;</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">Min altitude</span>
-      <span class="stat-value">${minAlt.toFixed(1)}&deg;</span>
     </div>
   `
 
@@ -449,7 +538,7 @@ function generateChart() {
 
     const date = new Date(dayStart)
     days.push({
-      label: d === 0 ? 'Today' : dayNames[date.getDay()],
+      label: d === 0 ? t('today') : dayNames[date.getDay()],
       date: date.toLocaleDateString([], { month: 'short', day: 'numeric' }),
       minutes: dayAstroMin,
     })
@@ -458,7 +547,7 @@ function generateChart() {
   const maxMinutes = Math.max(...days.map(d => d.minutes), 1)
 
   weeklyForecast.innerHTML = `
-    <h3>7-day visibility (astro night)</h3>
+    <h3>${t('weeklyTitle')}</h3>
     <div class="weekly-days">
       ${days.map((d, i) => {
         const h = Math.floor(d.minutes / 60)
@@ -520,7 +609,7 @@ async function startBrowse() {
     // Update autocomplete cache
     cachedCatalog = catalog
 
-    browseStatus.textContent = `Computing visibility for ${catalog.length} objects...`
+    browseStatus.textContent = t('computing', { n: catalog.length })
 
     // Defer to let UI update
     await new Promise(r => setTimeout(r, 50))
@@ -593,7 +682,7 @@ async function startBrowse() {
     browseResults = results
     applyFilters()
 
-    browseStatus.textContent = `${results.length} objects visible tonight`
+    browseStatus.textContent = t('objectsVisible', { n: results.length })
   } catch (e) {
     browseStatus.textContent = `Error: ${e.message}`
   } finally {
@@ -676,5 +765,5 @@ function renderPage() {
 
   pagePrev.disabled = currentPage === 0
   pageNext.disabled = currentPage >= totalPages - 1
-  pageInfo.textContent = `Page ${currentPage + 1} of ${totalPages} (${filteredResults.length} objects)`
+  pageInfo.textContent = `${t('page')} ${currentPage + 1} ${t('of')} ${totalPages} (${filteredResults.length} ${t('objects')})`
 }

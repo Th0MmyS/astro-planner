@@ -13,7 +13,7 @@ let chartInstance = null
  * @param {Array|null} horizonPoints - [{ az, alt }]
  * @param {Function|null} horizonAltFn - (az) => alt
  */
-export function renderChart(canvas, track, twilight, transit, riseSet, horizonPoints, horizonAltFn, nowTime, lat, moonTrack, minAlt) {
+export function renderChart(canvas, track, twilight, transit, riseSet, horizonPoints, horizonAltFn, nowTime, lat, moonTrack, minAlt, astroNightPeriods) {
   if (chartInstance) {
     chartInstance.destroy()
   }
@@ -36,23 +36,46 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
     {
       label: 'Altitude',
       data: altData,
-      borderColor: '#e8907a',
-      backgroundColor: 'rgba(232, 144, 122, 0.1)',
-      borderWidth: 2.5,
+      borderColor: '#4C7BF4',
+      backgroundColor: 'rgba(76, 123, 244, 0.1)',
+      borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 5,
-      pointHoverBackgroundColor: '#fff',
+      pointHoverBackgroundColor: '#E0E6F0',
       tension: 0.3,
       fill: false,
+      order: 2,
     },
   ]
+
+  // Prepare integration data (added last so it renders on top)
+  let integrationDataset = null
+  if (astroNightPeriods && astroNightPeriods.length) {
+    const visibleData = track.map(p => {
+      const threshold = Math.max(horizonAltFn ? horizonAltFn(p.az) : 0, minAlt || 0)
+      const inAstro = astroNightPeriods.some(n => p.time >= n.start && p.time < n.end)
+      return (inAstro && p.alt > threshold) ? p.alt : null
+    })
+    integrationDataset = {
+      label: 'Integration',
+      data: visibleData,
+      borderColor: 'rgba(231, 76, 60, 0.9)',
+      borderWidth: 4,
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      tension: 0.3,
+      fill: false,
+      spanGaps: false,
+      order: 0,
+    }
+  }
 
   if (horizonData) {
     datasets.push({
       label: 'Horizon',
       data: horizonData,
-      borderColor: 'rgba(100, 200, 100, 0.7)',
-      backgroundColor: 'rgba(100, 200, 100, 0.15)',
+      borderColor: 'rgba(46, 204, 113, 0.7)',
+      backgroundColor: 'rgba(46, 204, 113, 0.70)',
       borderWidth: 1.5,
       pointRadius: 0,
       tension: 0.3,
@@ -68,9 +91,9 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
       label: 'Transit',
       data: transitData,
       borderColor: 'transparent',
-      backgroundColor: '#fff',
+      backgroundColor: '#E0E6F0',
       pointRadius: 6,
-      pointBorderColor: '#e8907a',
+      pointBorderColor: '#4C7BF4',
       pointBorderWidth: 2,
       pointHoverRadius: 8,
       showLine: false,
@@ -82,16 +105,21 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
     datasets.push({
       label: 'Moon',
       data: moonTrack.map(p => p.alt),
-      borderColor: 'rgba(200, 200, 120, 0.5)',
-      backgroundColor: 'rgba(255, 255, 255, 0.10)',
+      borderColor: 'rgba(232, 168, 56, 0.5)',
+      backgroundColor: 'rgba(232, 168, 56, 0.06)',
       borderWidth: 1.5,
       borderDash: [4, 4],
       pointRadius: 0,
       pointHoverRadius: 4,
-      pointHoverBackgroundColor: 'rgba(200, 200, 120, 0.8)',
+      pointHoverBackgroundColor: 'rgba(232, 168, 56, 0.8)',
       tension: 0.3,
       fill: 'origin',
     })
+  }
+
+  // Add integration line last so it renders on top of everything
+  if (integrationDataset) {
+    datasets.push(integrationDataset)
   }
 
   chartInstance = new Chart(canvas, {
@@ -100,6 +128,10 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
+      layout: {
+        padding: { top: 20 },
+      },
       interaction: {
         mode: 'index',
         intersect: false,
@@ -116,11 +148,14 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
               if (item.dataset.label === 'Transit') {
                 return `Transit: ${transit.alt.toFixed(1)}°`
               }
+              if (item.dataset.label === 'Integration') {
+                return null // don't duplicate the altitude tooltip
+              }
               if (item.dataset.label === 'Horizon') {
                 return `Horizon: ${item.parsed.y.toFixed(1)}°`
               }
               if (item.dataset.label === 'Moon') {
-                return `Moon: ${item.parsed.y.toFixed(1)}°`
+                return `Moon alt: ${item.parsed.y.toFixed(1)}°`
               }
               return `Alt: ${item.parsed.y.toFixed(1)}°`
             },
@@ -132,26 +167,27 @@ export function renderChart(canvas, track, twilight, transit, riseSet, horizonPo
           type: 'category',
           labels: labels.map(t => formatTime(t)),
           ticks: {
-            color: '#666',
-            maxTicksLimit: 13,
+            color: '#8A94A8',
             maxRotation: 0,
+            callback: (val, index) => index % 12 === 0 ? labels.map(t => formatTime(t))[val] : '',
+            autoSkip: false,
           },
           grid: {
-            color: 'rgba(255,255,255,0.05)',
+            color: (ctx) => ctx.index % 12 === 0 ? '#2A3A52' : 'transparent',
           },
         },
         y: {
           min: -10,
           max: 90,
           ticks: {
-            color: '#666',
+            color: '#8A94A8',
             stepSize: 10,
             callback: v => v + '°',
           },
           grid: {
             color: (ctx) => {
-              if (ctx.tick.value === 0) return 'rgba(255,255,100,0.3)'
-              return 'rgba(255,255,255,0.05)'
+              if (ctx.tick.value === 0) return 'rgba(232, 168, 56, 0.3)'
+              return '#1E2A3A'
             },
             lineWidth: (ctx) => {
               if (ctx.tick.value === 0) return 1.5
@@ -181,11 +217,11 @@ function formatTime(date) {
 function buildTwilightBoxes(twilight, startTime, endTime) {
   const boxes = []
   const colors = {
-    day: 'rgba(135, 170, 220, 0.25)',
-    civil: 'rgba(80, 100, 160, 0.30)',
-    nautical: 'rgba(40, 50, 100, 0.35)',
-    astro: 'rgba(20, 25, 60, 0.40)',
-    night: 'rgba(10, 10, 30, 0.50)',
+    day: 'rgba(100, 150, 220, 0.20)',
+    civil: 'rgba(60, 80, 150, 0.25)',
+    nautical: 'rgba(30, 45, 100, 0.30)',
+    astro: 'rgba(15, 20, 55, 0.35)',
+    night: 'rgba(5, 8, 25, 0.45)',
   }
 
   for (const [category, periods] of Object.entries(twilight)) {
@@ -255,7 +291,7 @@ function verticalLinesPlugin(timeLabels, track, nowTime, observerLat) {
       if (nowMs >= startMs && nowMs <= endMs) {
         const x = toX(nowMs)
         ctx.save()
-        ctx.strokeStyle = '#e8c170'
+        ctx.strokeStyle = '#E8A838'
         ctx.lineWidth = 2
         ctx.setLineDash([])
         ctx.beginPath()
@@ -264,10 +300,10 @@ function verticalLinesPlugin(timeLabels, track, nowTime, observerLat) {
         ctx.stroke()
 
         // Label
-        ctx.fillStyle = '#e8c170'
+        ctx.fillStyle = '#E8A838'
         ctx.font = '11px sans-serif'
         ctx.textAlign = 'center'
-        ctx.fillText('Now', x, top - 4)
+        ctx.fillText('Now', x, top - 6)
         ctx.restore()
       }
 
@@ -299,7 +335,7 @@ function verticalLinesPlugin(timeLabels, track, nowTime, observerLat) {
           if (crossMs >= startMs && crossMs <= endMs) {
             const x = toX(crossMs)
             ctx.save()
-            ctx.strokeStyle = 'rgba(100, 180, 255, 0.6)'
+            ctx.strokeStyle = 'rgba(0, 191, 165, 0.6)'
             ctx.lineWidth = 1.5
             ctx.setLineDash([6, 4])
             ctx.beginPath()
@@ -307,16 +343,120 @@ function verticalLinesPlugin(timeLabels, track, nowTime, observerLat) {
             ctx.lineTo(x, bottom)
             ctx.stroke()
 
-            ctx.fillStyle = 'rgba(100, 180, 255, 0.8)'
+            ctx.fillStyle = 'rgba(0, 191, 165, 0.8)'
             ctx.font = '11px sans-serif'
             ctx.textAlign = 'center'
-            ctx.fillText(label, x, top - 4)
+            ctx.fillText(label, x, top - 6)
             ctx.restore()
           }
         }
       }
     },
   }
+}
+
+/**
+ * Chart.js plugin to fill between the object curve and the threshold
+ * only during astronomical night when the object is above threshold.
+ */
+function visibilityFillPlugin(track, timeLabels, horizonAltFn, minAlt, astroNightPeriods) {
+  return {
+    id: 'visibilityFill',
+    afterDatasetsDraw(chart) {
+      if (!track.length || !astroNightPeriods || !astroNightPeriods.length) return
+
+      const { ctx, chartArea: { left, right, top, bottom }, scales: { x, y } } = chart
+      const startMs = timeLabels[0].getTime()
+      const endMs = timeLabels[timeLabels.length - 1].getTime()
+      const totalMs = endMs - startMs
+      const chartWidth = right - left
+
+      const toX = (i) => {
+        // Map index to pixel position
+        const ms = timeLabels[i].getTime()
+        return left + ((ms - startMs) / totalMs) * chartWidth
+      }
+
+      ctx.save()
+      ctx.fillStyle = 'rgba(231, 76, 60, 0.70)'
+      ctx.beginPath()
+
+      let inSegment = false
+
+      for (let i = 0; i < track.length; i++) {
+        const p = track[i]
+        const threshold = Math.max(horizonAltFn ? horizonAltFn(p.az) : 0, minAlt || 0)
+        const inAstro = astroNightPeriods.some(n => p.time >= n.start && p.time < n.end)
+        const visible = inAstro && p.alt > threshold
+
+        const px = toX(i)
+        const altY = y.getPixelForValue(p.alt)
+        const threshY = y.getPixelForValue(threshold)
+
+        if (visible) {
+          if (!inSegment) {
+            // Start a new fill segment — move to threshold, then up to altitude
+            ctx.moveTo(px, threshY)
+            ctx.lineTo(px, altY)
+            inSegment = true
+          } else {
+            ctx.lineTo(px, altY)
+          }
+        } else {
+          if (inSegment) {
+            // Close the segment — go back down along the threshold
+            // Trace threshold line backwards
+            const segStart = findSegmentStart(track, i, timeLabels, horizonAltFn, minAlt, astroNightPeriods)
+            for (let j = i - 1; j >= segStart; j--) {
+              const tp = track[j]
+              const th = Math.max(horizonAltFn ? horizonAltFn(tp.az) : 0, minAlt || 0)
+              ctx.lineTo(toX(j), y.getPixelForValue(th))
+            }
+            ctx.closePath()
+            inSegment = false
+          }
+        }
+      }
+
+      // Close final segment if still open
+      if (inSegment) {
+        const lastI = track.length - 1
+        for (let j = lastI; j >= 0; j--) {
+          const p = track[j]
+          const threshold = Math.max(horizonAltFn ? horizonAltFn(p.az) : 0, minAlt || 0)
+          const inAstro = astroNightPeriods.some(n => p.time >= n.start && p.time < n.end)
+          if (!(inAstro && p.alt > threshold)) {
+            // Trace back threshold from j+1 to segment start
+            const segStart = findSegmentStart(track, j + 1, timeLabels, horizonAltFn, minAlt, astroNightPeriods)
+            for (let k = j; k >= segStart; k--) {
+              const tp = track[k]
+              const th = Math.max(horizonAltFn ? horizonAltFn(tp.az) : 0, minAlt || 0)
+              ctx.lineTo(toX(k), y.getPixelForValue(th))
+            }
+            break
+          }
+          if (j === 0) {
+            const th = Math.max(horizonAltFn ? horizonAltFn(track[0].az) : 0, minAlt || 0)
+            ctx.lineTo(toX(0), y.getPixelForValue(th))
+          }
+        }
+        ctx.closePath()
+      }
+
+      ctx.fill()
+      ctx.restore()
+    },
+  }
+}
+
+function findSegmentStart(track, endI, timeLabels, horizonAltFn, minAlt, astroNightPeriods) {
+  for (let j = endI - 1; j >= 0; j--) {
+    const p = track[j]
+    const threshold = Math.max(horizonAltFn ? horizonAltFn(p.az) : 0, minAlt || 0)
+    const inAstro = astroNightPeriods.some(n => p.time >= n.start && p.time < n.end)
+    if (!(inAstro && p.alt > threshold)) return j + 1
+  }
+  return 0
 }
 
 /**
@@ -334,7 +474,7 @@ function minAltLinePlugin(minAltValue) {
       if (yPos < top || yPos > bottom) return
 
       ctx.save()
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'
+      ctx.strokeStyle = 'rgba(76, 123, 244, 0.35)'
       ctx.lineWidth = 1.5
       ctx.setLineDash([6, 4])
       ctx.beginPath()
@@ -343,7 +483,7 @@ function minAltLinePlugin(minAltValue) {
       ctx.stroke()
 
       // Label
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
+      ctx.fillStyle = 'rgba(76, 123, 244, 0.5)'
       ctx.font = '10px sans-serif'
       ctx.textAlign = 'right'
       ctx.fillText(`${minAltValue}°`, left - 4, yPos + 3)
@@ -355,25 +495,29 @@ function minAltLinePlugin(minAltValue) {
 /**
  * Build the info bar HTML showing rise, set, transit info.
  */
-export function buildInfoHTML(transit, riseSet) {
+export function buildInfoHTML(transit, riseSet, labels = {}) {
   const parts = []
+  const transitLabel = labels.transit || 'transit'
+  const riseLabel = labels.rise || 'Rise'
+  const setLabel = labels.set || 'Set'
 
   if (transit) {
     const tTime = formatTime(transit.time)
+    const dir = labels[transit.direction] || transit.direction
     parts.push(
-      `<span class="info-item transit-info">transit: ${transit.direction} &middot; ${transit.alt.toFixed(0)}&deg; &middot; ${tTime} hr</span>`
+      `<span class="info-item transit-info">${transitLabel}: ${dir} &middot; ${transit.alt.toFixed(0)}&deg; &middot; ${tTime} hr</span>`
     )
   }
 
   if (riseSet.rise) {
     parts.push(
-      `<span class="info-item"><span class="info-label">&#x2B06; Rise:</span> ${formatTime(riseSet.rise)} hr</span>`
+      `<span class="info-item"><span class="info-label">&#x2B06; ${riseLabel}:</span> ${formatTime(riseSet.rise)} hr</span>`
     )
   }
 
   if (riseSet.set) {
     parts.push(
-      `<span class="info-item"><span class="info-label">&#x2B07; Set:</span> ${formatTime(riseSet.set)} hr</span>`
+      `<span class="info-item"><span class="info-label">&#x2B07; ${setLabel}:</span> ${formatTime(riseSet.set)} hr</span>`
     )
   }
 

@@ -216,6 +216,33 @@ export function computeMoonTrack(latDeg, lonDeg, startDate) {
 }
 
 /**
+ * Compute angular separation between two objects in degrees.
+ * Uses the Vincenty formula for better numerical stability.
+ * @param {number} ra1 - RA of first object in degrees
+ * @param {number} dec1 - Dec of first object in degrees
+ * @param {number} ra2 - RA of second object in degrees
+ * @param {number} dec2 - Dec of second object in degrees
+ * @returns {number} Angular separation in degrees
+ */
+export function angularSeparation(ra1, dec1, ra2, dec2) {
+  const d1 = dec1 * DEG
+  const d2 = dec2 * DEG
+  const dra = (ra2 - ra1) * DEG
+
+  const sinD1 = Math.sin(d1), cosD1 = Math.cos(d1)
+  const sinD2 = Math.sin(d2), cosD2 = Math.cos(d2)
+  const sinDra = Math.sin(dra), cosDra = Math.cos(dra)
+
+  const num = Math.sqrt(
+    (cosD2 * sinDra) ** 2 +
+    (cosD1 * sinD2 - sinD1 * cosD2 * cosDra) ** 2
+  )
+  const den = sinD1 * sinD2 + cosD1 * cosD2 * cosDra
+
+  return Math.atan2(num, den) * RAD
+}
+
+/**
  * Compute twilight boundaries for the next 24 hours.
  * Returns arrays of time ranges for civil, nautical, astronomical twilight, and night.
  * Each entry: { start: Date, end: Date }

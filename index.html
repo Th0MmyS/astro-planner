@@ -9,19 +9,22 @@
 <body>
   <div id="app">
     <header>
-      <h1>Astro Planner</h1>
-      <button id="fetch-catalog-btn" class="fetch-btn">
-        <span id="fetch-btn-text">Load catalog</span>
-        <span id="fetch-spinner" class="spinner hidden"></span>
-      </button>
+      <h1 data-i18n="title">Astro Planner</h1>
+      <div class="header-right">
+        <button id="fetch-catalog-btn" class="fetch-btn">
+          <span id="fetch-btn-text" data-i18n="loadCatalog">Load catalog</span>
+          <span id="fetch-spinner" class="spinner hidden"></span>
+        </button>
+        <select id="lang-select" class="lang-select"></select>
+      </div>
     </header>
 
     <section class="controls">
       <div class="input-group">
-        <label for="simbad-input">Object</label>
+        <label for="simbad-input" data-i18n="object">Object</label>
         <div class="input-with-status">
           <div class="autocomplete-wrapper">
-            <input type="text" id="simbad-input" placeholder="e.g. M31, NGC 7000, Vega" autocomplete="off" />
+            <input type="text" id="simbad-input" data-i18n-placeholder="objectPlaceholder" placeholder="e.g. M31, NGC 7000, Vega" autocomplete="off" />
             <ul id="autocomplete-list" class="autocomplete-list hidden"></ul>
           </div>
           <span id="simbad-status" class="status-icon"></span>
@@ -30,16 +33,16 @@
       </div>
 
       <div class="input-group">
-        <label>Location</label>
+        <label data-i18n="location">Location</label>
         <div class="location-fields">
           <input type="number" id="lat-input" step="0.0001" placeholder="Lat" />
           <input type="number" id="lon-input" step="0.0001" placeholder="Lon" />
-          <button id="geo-btn" title="Detect location">&#9678;</button>
+          <button id="geo-btn" data-i18n-title="detectLocation" title="Detect location">&#9678;</button>
         </div>
       </div>
 
       <div class="input-group">
-        <label for="min-alt-input">Min altitude</label>
+        <label for="min-alt-input" data-i18n="minAlt">Min altitude</label>
         <div class="min-alt-row">
           <input type="number" id="min-alt-input" value="30" min="0" max="90" step="5" />
           <span class="unit-label">&deg;</span>
@@ -47,7 +50,7 @@
       </div>
 
       <div class="input-group">
-        <label for="horizon-file">Horizon file</label>
+        <label for="horizon-file" data-i18n="horizonFile">Horizon file</label>
         <div class="file-upload">
           <input type="file" id="horizon-file" accept=".txt,.csv,.hrz,.hzn" />
           <span id="horizon-status"></span>
@@ -55,14 +58,14 @@
       </div>
 
       <div class="controls-row">
-        <button id="ok-btn" disabled>OK</button>
-        <button id="browse-btn">Browse catalog</button>
+        <button id="ok-btn" class="btn btn-primary" data-i18n="ok" disabled>OK</button>
+        <button id="browse-btn" class="btn" data-i18n="browseCatalog">Browse catalog</button>
       </div>
     </section>
 
     <section id="browse-section" class="hidden">
       <div class="browse-header">
-        <h2>Best targets tonight</h2>
+        <h2 data-i18n="bestTargets">Best targets tonight</h2>
         <span id="browse-status" class="browse-status"></span>
       </div>
       <div class="browse-filters">
@@ -83,26 +86,26 @@
           Caldwell
         </label>
         <label class="filter-label">
-          Min altitude
+          <span data-i18n="minAltitude">Min altitude</span>
           <input type="number" id="filter-min-alt" value="20" min="0" max="90" step="5" />&deg;
         </label>
       </div>
       <table id="browse-table" class="browse-table">
         <thead>
           <tr>
-            <th>Object</th>
-            <th>Astro night</th>
-            <th>Night visible</th>
-            <th>Max alt</th>
-            <th>Transit</th>
+            <th data-i18n="objectCol">Object</th>
+            <th data-i18n="astroNightCol">Astro night</th>
+            <th data-i18n="nightVisibleCol">Night visible</th>
+            <th data-i18n="maxAltCol">Max alt</th>
+            <th data-i18n="transitCol">Transit</th>
           </tr>
         </thead>
         <tbody id="browse-tbody"></tbody>
       </table>
       <div class="browse-pagination">
-        <button id="page-prev" disabled>&laquo; Prev</button>
+        <button id="page-prev" class="btn" disabled>&laquo; <span data-i18n="prev">Prev</span></button>
         <span id="page-info"></span>
-        <button id="page-next">Next &raquo;</button>
+        <button id="page-next" class="btn"><span data-i18n="next">Next</span> &raquo;</button>
       </div>
     </section>
 
@@ -111,7 +114,7 @@
         <div class="chart-options">
           <label class="checkbox-label">
             <input type="checkbox" id="show-moon" checked />
-            Moon
+            <span data-i18n="moon">Moon</span>
           </label>
         </div>
         <div class="chart-container">
